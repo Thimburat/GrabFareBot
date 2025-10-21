@@ -92,6 +92,11 @@ def index():
 
 @app.route(f"/{YOUR_SECRET_URL_PATH}", methods=['POST'])
 async def telegram_webhook():
+    # --- ADD THESE TWO LINES ---
+    if not ptb_app._initialized:
+        await ptb_app.initialize()
+    # ---------------------------
+
     update_data = request.get_json()
     update = Update.de_json(update_data, ptb_app.bot)
     await ptb_app.process_update(update)
