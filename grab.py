@@ -1,23 +1,25 @@
 import os
-import googlemaps # New library
+import googlemaps
+import telegram
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from flask import Flask, request
 
 # --- CONFIGURATION ---
+# Load API keys from Render's Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-# This is your NEW Google Maps key, not your Gemini key
-GOOGLE_MAPS_KEY = os.getenv("GOOGLE_MAPS_KEY") 
+GOOGLE_MAPS_KEY = os.getenv("GOOGLE_MAPS_KEY")
+
+# This must match the secret path you set in your set_webhook command
+YOUR_SECRET_URL_PATH = 'A7bZ9xL3vK8wPq' # Or whatever secret you chose
 
 # --- FARE CALCULATION (PHILIPPINES) ---
-# NOTE: These rates are based on public reports and may be outdated.
 BASE_FARE = 45  # P45
 PER_KM_RATE = 15  # P15/km
 PER_MIN_RATE = 2   # P2/min
 
 # --- TELEGRAM BOT HANDLERS ---
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the /start command."""
     await update.message.reply_text(
         "Hello! I am a Grab fare estimator bot.\n\n"
         "Please use me like this:\n"
@@ -27,20 +29,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def calculate_fare(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Calculates the estimated fare based on user input."""
-    
-    # Get the user's message text
     user_text = " ".join(context.args)
-    
-    # Try to split the message by " to "
     try:
         origin, destination = user_text.split(" to ")
         origin = origin.strip()
         destination = destination.strip()
-        
         if not origin or not destination:
             raise ValueError()
-
     except Exception:
         await update.message.reply_text(
             "I don't understand that. Please use the format:\n"
@@ -48,16 +43,8 @@ async def calculate_fare(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await context.bot.send_chat_action(
-        chat_id=update.effective_chat.id, 
-        action="TYPING"
-    )
-
     try:
-        # Initialize Google Maps Client
         gmaps = googlemaps.Client(key=GOOGLE_MAPS_KEY)
-        
-        # Request directions. We add "Philippines" to help the search.
         directions_result = gmaps.directions(
             f"{origin}, Philippines",
             f"{destination}, Philippines",
@@ -65,22 +52,18 @@ async def calculate_fare(update: Update, context: ContextTypes.DEFAULT_TYPE):
             region="PH"
         )
         
-        # Check if we got a result
         if not directions_result:
             await update.message.reply_text("Sorry, I could not find a route for those locations.")
             return
 
-        # Extract distance and duration
         leg = directions_result[0]['legs'][0]
-        distance_km = leg['distance']['value'] / 1000  # Convert meters to km
-        duration_min = leg['duration']['value'] / 60    # Convert seconds to min
+        distance_km = leg['distance']['value'] / 1000
+        duration_min = leg['duration']['value'] / 60
 
-        # --- Calculate the fare ---
         fare_distance = distance_km * PER_KM_RATE
         fare_duration = duration_min * PER_MIN_RATE
         total_fare = BASE_FARE + fare_distance + fare_duration
 
-        # --- Format the reply ---
         reply_text = (
             f"📍 **Origin:** {origin}\n"
             f"🏁 **Destination:** {destination}\n\n"
@@ -89,32 +72,27 @@ async def calculate_fare(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 **Estimated Fare: ₱{total_fare:.2f}**\n\n"
             f"⚠️ *Disclaimer: This is an **estimate** only. It does not include tolls or real-time surge pricing.*"
         )
-        
         await update.message.reply_text(reply_text, parse_mode="Markdown")
 
     except Exception as e:
         print(f"Error: {e}")
         await update.message.reply_text("Sorry, an error occurred while calculating the fare.")
 
-# --- MAIN FUNCTION TO RUN THE BOT ---
+# --- SET UP THE BOT AND FLASK APP ---
+ptb_app = Application.builder().token(TELEGRAM_TOKEN).build()
+ptb_app.add_handler(CommandHandler("start", start))
+ptb_app.add_handler(CommandHandler("fare", calculate_fare))
 
-def main():
-    if not TELEGRAM_TOKEN:
-        print("Error: TELEGRAM_TOKEN environment variable not set.")
-        return
-    if not GOOGLE_MAPS_KEY:
-        print("Error: GOOGLE_MAPS_KEY environment variable not set.")
-        return
+# THIS IS THE VARIABLE GUNICORN IS LOOKING FOR
+app = Flask(__name__)
 
-    print("Starting fare estimator bot...")
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+@app.route("/")
+def index():
+    return "Hello! Your bot is running."
 
-    # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("fare", calculate_fare))
-
-    # Start the bot
-    application.run_polling()
-
-if __name__ == "__main__":
-    main()
+@app.route(f"/{YOUR_SECRET_URL_PATH}", methods=['POST'])
+async def telegram_webhook():
+    update_data = request.get_json()
+    update = Update.de_json(update_data, ptb_app.bot)
+    await ptb_app.process_update(update)
+    return "OK", 200
