@@ -7,8 +7,8 @@ from flask import Flask, request
 
 # --- CONFIGURATION ---
 # Load API keys from Render's Environment Variables
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-GOOGLE_MAPS_KEY = os.getenv("GOOGLE_MAPS_KEY")
+TELEGRAM_TOKEN = "8213653010:AAG8yYiSSqUkc9dZYboCPd-af44wEWvc8ks"
+GOOGLE_MAPS_KEY = "AIzaSyAQIyL-zOMUyjUALAvH1IC0Jq1P7Jfotf0"
 
 # This must match the secret path you set in your set_webhook command
 YOUR_SECRET_URL_PATH = 'A7bZ9xL3vK8wPq' # Or whatever secret you chose
@@ -96,3 +96,4 @@ async def telegram_webhook():
     update = Update.de_json(update_data, ptb_app.bot)
     await ptb_app.process_update(update)
     return "OK", 200
+
