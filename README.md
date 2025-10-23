@@ -9,14 +9,10 @@ This bot provides an easy way to get estimated fare calculations for various mod
 ## ✨ Features
 
 * **Point-to-Point Calculation:** Get fare estimates simply by providing a starting location and a destination.
-* **Multiple Transport Modes:** (Optional: Add this if your bot supports it) Calculates fares for different types of transportation.
+* **Multiple Transport Modes:** Calculates fares for different types of transportation (In Development).
 * **Easy to Use:** simple commands to get the information you need quickly.
 
 ## 🚀 Getting Started
-
-*(This section will depend on your bot. Here are two common examples. Choose the one that fits your project, or modify it.)*
-
-### Option 1: For a Discord/Telegram/Slack Bot
 
 1.  Invite the bot to your server/chat. https://t.me/ivanalcaide_bot
 2.  Type `/help` or `!help` to see the list of commands.
